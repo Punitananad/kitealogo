@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Authentication Required</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #0a0e27 0%, #1a1f3a 100%);
+            color: #e0e0e0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .auth-container {
+            background: #151932;
+            border-radius: 12px;
+            padding: 40px;
+            max-width: 500px;
+            width: 100%;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+        }
+        
+        h1 {
+            color: #fff;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+        
+        .subtitle {
+            color: #64b5f6;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+        
+        .info-box {
+            background: #1e2749;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 30px;
+            border-left: 4px solid #2196f3;
+        }
+        
+        .info-box h3 {
+            color: #64b5f6;
+            margin-bottom: 15px;
+            font-size: 16px;
+        }
+        
+        .info-box p {
+            color: #b0b0b0;
+            line-height: 1.6;
+            margin-bottom: 10px;
+        }
+        
+        .info-box code {
+            background: #0a0e27;
+            padding: 2px 8px;
+            border-radius: 4px;
+            color: #64b5f6;
+            font-family: 'Courier New', monospace;
+        }
+        
+        .login-btn {
+            display: block;
+            width: 100%;
+            padding: 15px;
+            background: #2196f3;
+            color: white;
+            text-align: center;
+            text-decoration: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            transition: background 0.3s;
+            border: none;
+            cursor: pointer;
+        }
+        
+        .login-btn:hover {
+            background: #1976d2;
+        }
+        
+        .steps {
+            margin-top: 30px;
+            padding-top: 30px;
+            border-top: 1px solid #1e2749;
+        }
+        
+        .steps h3 {
+            color: #fff;
+            margin-bottom: 15px;
+            font-size: 16px;
+        }
+        
+        .steps ol {
+            padding-left: 20px;
+        }
+        
+        .steps li {
+            color: #b0b0b0;
+            margin-bottom: 10px;
+            line-height: 1.6;
+        }
+        
+        .note {
+            background: rgba(255, 193, 7, 0.1);
+            border-left: 4px solid #ffc107;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 20px;
+        }
+        
+        .note strong {
+            color: #ffc107;
+        }
+    </style>
+</head>
+<body>
+    <div class="auth-container">
+        <h1>🔐 Authentication Required</h1>
+        <p class="subtitle">Connect to Zerodha Kite API</p>
+        
+        <div class="info-box">
+            <h3>API Configuration Detected</h3>
+            <p><strong>API Key:</strong> <code>{{ api_key }}</code></p>
+            <p><strong>Redirect URL:</strong> <code>http://localhost:8080/callback</code></p>
+        </div>
+        
+        <a href="/login" class="login-btn">Login with Zerodha Kite</a>
+        
+        <div class="steps">
+            <h3>What happens next:</h3>
+            <ol>
+                <li>You'll be redirected to Zerodha Kite login page</li>
+                <li>Login with your Zerodha credentials</li>
+                <li>Authorize the application</li>
+                <li>You'll be redirected back to the dashboard</li>
+                <li>Access token will be saved automatically</li>
+            </ol>
+        </div>
+        
+        <div class="note">
+            <strong>Note:</strong> Access tokens are valid until end of trading day. You'll need to re-authenticate daily.
+        </div>
+    </div>
+</body>
+</html>

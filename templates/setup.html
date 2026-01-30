@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Setup - Add Stocks</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <style>
+        .setup-container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 40px 20px;
+        }
+
+        .card {
+            background: #151932;
+            border-radius: 12px;
+            padding: 30px;
+            margin-bottom: 30px;
+        }
+
+        .card h2 {
+            color: #fff;
+            margin-bottom: 10px;
+            font-size: 24px;
+        }
+
+        .card p {
+            color: #b0b0b0;
+            margin-bottom: 25px;
+            line-height: 1.6;
+        }
+
+        .form-group {
+            margin-bottom: 25px;
+        }
+
+        .form-group label {
+            display: block;
+            color: #64b5f6;
+            margin-bottom: 8px;
+            font-weight: 600;
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .form-group input[type="text"],
+        .form-group input[type="date"],
+        .form-group textarea {
+            width: 100%;
+            padding: 12px 15px;
+            background: #1e2749;
+            border: 2px solid #2a3254;
+            border-radius: 8px;
+            color: #e0e0e0;
+            font-size: 16px;
+            font-family: inherit;
+            transition: border-color 0.3s;
+        }
+
+        .form-group textarea {
+            min-height: 120px;
+            resize: vertical;
+            font-family: 'Courier New', monospace;
+        }
+
+        .form-group input:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: #2196f3;
+        }
+
+        .form-group small {
+            display: block;
+            color: #888;
+            margin-top: 8px;
+            font-size: 13px;
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 15px;
+        }
+
+        .btn {
+            flex: 1;
+            padding: 15px 30px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .btn-primary {
+            background: #2196f3;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #1976d2;
+            transform: translateY(-2px);
+        }
+
+        .btn-secondary {
+            background: #1e2749;
+            color: #e0e0e0;
+        }
+
+        .btn-secondary:hover {
+            background: #2a3254;
+        }
+
+        .success-message {
+            background: rgba(76, 175, 80, 0.2);
+            border: 2px solid #4caf50;
+            color: #4caf50;
+            padding: 15px 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        .error-message {
+            background: rgba(244, 67, 54, 0.2);
+            border: 2px solid #f44336;
+            color: #f44336;
+            padding: 15px 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        .example-box {
+            background: #0a0e27;
+            padding: 15px;
+            border-radius: 6px;
+            margin-top: 10px;
+            border-left: 4px solid #2196f3;
+        }
+
+        .example-box code {
+            color: #64b5f6;
+            font-family: 'Courier New', monospace;
+        }
+
+        .nav-link {
+            display: inline-block;
+            color: #64b5f6;
+            text-decoration: none;
+            margin-bottom: 20px;
+            font-size: 14px;
+        }
+
+        .nav-link:hover {
+            color: #2196f3;
+        }
+
+        .step-indicator {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 40px;
+            position: relative;
+        }
+
+        .step {
+            flex: 1;
+            text-align: center;
+            position: relative;
+        }
+
+        .step-number {
+            width: 40px;
+            height: 40px;
+            background: #1e2749;
+            border-radius: 50%;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            color: #64b5f6;
+            font-weight: 600;
+            margin-bottom: 10px;
+        }
+
+        .step.active .step-number {
+            background: #2196f3;
+            color: white;
+        }
+
+        .step-label {
+            color: #888;
+            font-size: 12px;
+        }
+
+        .step.active .step-label {
+            color: #64b5f6;
+        }
+    </style>
+</head>
+<body>
+    <div class="setup-container">
+        <a href="/" class="nav-link">← Back to Dashboard</a>
+
+        <div class="step-indicator">
+            <div class="step active">
+                <div class="step-number">1</div>
+                <div class="step-label">Process Fetch Day</div>
+            </div>
+            <div class="step">
+                <div class="step-number">2</div>
+                <div class="step-label">Add to Decode List</div>
+            </div>
+            <div class="step">
+                <div class="step-number">3</div>
+                <div class="step-label">Monitor Execute Day</div>
+            </div>
+        </div>
+
+        <div id="success-msg" class="success-message"></div>
+        <div id="error-msg" class="error-message"></div>
+
+        <!-- Step 1: Process Fetch Day -->
+        <div class="card">
+            <h2>📊 Step 1: Process Fetch Day</h2>
+            <p>Extract zones from a completed trading day. This analyzes historical data to find institutional price zones.</p>
+
+            <form id="fetch-form">
+                <div class="form-group">
+                    <label>Fetch Date (Completed Trading Day)</label>
+                    <input type="date" id="fetch-date" required>
+                    <small>Select a past trading day when market was open</small>
+                </div>
+
+                <div class="form-group">
+                    <label>Stock Symbols (Comma Separated)</label>
+                    <textarea id="fetch-symbols" placeholder="HINDZINC, TATASTEEL, RELIANCE, INFY, TCS" required></textarea>
+                    <small>Enter NSE stock symbols separated by commas</small>
+                    <div class="example-box">
+                        <strong>Example:</strong> <code>HINDZINC, TATASTEEL, RELIANCE, INFY, TCS</code>
+                    </div>
+                </div>
+
+                <div class="btn-group">
+                    <button type="submit" class="btn btn-primary">🔍 Extract Zones from Fetch Day</button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Step 2: Add to Decode List -->
+        <div class="card">
+            <h2>📝 Step 2: Add to Decode List</h2>
+            <p>Add stocks to today's monitoring list. These will be monitored on Execute Day against their Fetch Day zones.</p>
+
+            <form id="decode-form">
+                <div class="form-group">
+                    <label>Decode Date (Today or Future)</label>
+                    <input type="date" id="decode-date" required>
+                    <small>Usually today's date - when you want to start monitoring</small>
+                </div>
+
+                <div class="form-group">
+                    <label>Fetch Date Reference</label>
+                    <input type="date" id="decode-fetch-date" required>
+                    <small>Which Fetch Day's zones to use (must be already processed in Step 1)</small>
+                </div>
+
+                <div class="form-group">
+                    <label>Stock Symbols (Comma Separated)</label>
+                    <textarea id="decode-symbols" placeholder="HINDZINC, TATASTEEL, RELIANCE" required></textarea>
+                    <small>Stocks to monitor (must have zones from Fetch Day)</small>
+                </div>
+
+                <div class="btn-group">
+                    <button type="submit" class="btn btn-primary">✅ Add to Decode List</button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Quick Action -->
+        <div class="card" style="background: #1e2749; border: 2px solid #2196f3;">
+            <h2>⚡ Quick Start (Both Steps)</h2>
+            <p>Process Fetch Day AND add to Decode List in one go.</p>
+
+            <form id="quick-form">
+                <div class="form-group">
+                    <label>Fetch Date (Historical)</label>
+                    <input type="date" id="quick-fetch-date" required>
+                </div>
+
+                <div class="form-group">
+                    <label>Decode Date (Today)</label>
+                    <input type="date" id="quick-decode-date" required>
+                </div>
+
+                <div class="form-group">
+                    <label>Stock Symbols (Comma Separated)</label>
+                    <textarea id="quick-symbols" placeholder="HINDZINC, TATASTEEL, RELIANCE, INFY, TCS" required></textarea>
+                </div>
+
+                <div class="btn-group">
+                    <button type="submit" class="btn btn-primary">🚀 Process & Add to Monitor</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // Set default dates
+        const today = new Date().toISOString().split('T')[0];
+        const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+        
+        document.getElementById('decode-date').value = today;
+        document.getElementById('quick-decode-date').value = today;
+        document.getElementById('fetch-date').value = yesterday;
+        document.getElementById('decode-fetch-date').value = yesterday;
+        document.getElementById('quick-fetch-date').value = yesterday;
+
+        function showSuccess(message) {
+            const el = document.getElementById('success-msg');
+            el.textContent = message;
+            el.style.display = 'block';
+            setTimeout(() => el.style.display = 'none', 5000);
+        }
+
+        function showError(message) {
+            const el = document.getElementById('error-msg');
+            el.textContent = message;
+            el.style.display = 'block';
+            setTimeout(() => el.style.display = 'none', 5000);
+        }
+
+        function parseSymbols(text) {
+            return text.split(',').map(s => s.trim().toUpperCase()).filter(s => s.length > 0);
+        }
+
+        // Step 1: Process Fetch Day
+        document.getElementById('fetch-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const fetchDate = document.getElementById('fetch-date').value;
+            const symbols = parseSymbols(document.getElementById('fetch-symbols').value);
+            
+            if (symbols.length === 0) {
+                showError('Please enter at least one stock symbol');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/process-fetch-day', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ fetch_date: fetchDate, symbols: symbols })
+                });
+
+                const result = await response.json();
+                
+                if (result.success) {
+                    showSuccess(`✓ Processed ${symbols.length} stocks. Zones extracted successfully!`);
+                } else {
+                    showError(result.error || 'Failed to process Fetch Day');
+                }
+            } catch (error) {
+                showError('Error: ' + error.message);
+            }
+        });
+
+        // Step 2: Add to Decode List
+        document.getElementById('decode-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const decodeDate = document.getElementById('decode-date').value;
+            const fetchDate = document.getElementById('decode-fetch-date').value;
+            const symbols = parseSymbols(document.getElementById('decode-symbols').value);
+            
+            if (symbols.length === 0) {
+                showError('Please enter at least one stock symbol');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/add-decode-list', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ 
+                        decode_date: decodeDate, 
+                        fetch_date: fetchDate,
+                        symbols: symbols 
+                    })
+                });
+
+                const result = await response.json();
+                
+                if (result.success) {
+                    showSuccess(`✓ Added ${symbols.length} stocks to decode list. Go to dashboard to monitor!`);
+                } else {
+                    showError(result.error || 'Failed to add to decode list');
+                }
+            } catch (error) {
+                showError('Error: ' + error.message);
+            }
+        });
+
+        // Quick Start
+        document.getElementById('quick-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const fetchDate = document.getElementById('quick-fetch-date').value;
+            const decodeDate = document.getElementById('quick-decode-date').value;
+            const symbols = parseSymbols(document.getElementById('quick-symbols').value);
+            
+            if (symbols.length === 0) {
+                showError('Please enter at least one stock symbol');
+                return;
+            }
+
+            try {
+                // Step 1: Process Fetch Day
+                const fetchResponse = await fetch('/api/process-fetch-day', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ fetch_date: fetchDate, symbols: symbols })
+                });
+
+                const fetchResult = await fetchResponse.json();
+                
+                if (!fetchResult.success) {
+                    showError('Failed to process Fetch Day: ' + (fetchResult.error || 'Unknown error'));
+                    return;
+                }
+
+                // Step 2: Add to Decode List
+                const decodeResponse = await fetch('/api/add-decode-list', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ 
+                        decode_date: decodeDate, 
+                        fetch_date: fetchDate,
+                        symbols: symbols 
+                    })
+                });
+
+                const decodeResult = await decodeResponse.json();
+                
+                if (decodeResult.success) {
+                    showSuccess(`🚀 Success! Processed ${symbols.length} stocks and added to monitoring. Redirecting to dashboard...`);
+                    setTimeout(() => window.location.href = '/', 2000);
+                } else {
+                    showError('Failed to add to decode list: ' + (decodeResult.error || 'Unknown error'));
+                }
+            } catch (error) {
+                showError('Error: ' + error.message);
+            }
+        });
+    </script>
+</body>
+</html>

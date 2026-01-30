@@ -1,0 +1,671 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Execute Day Monitor - Single Timeline</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <h1>🎯 Execute Day Monitor</h1>
+                <div style="display: flex; gap: 30px; align-items: center;">
+                    <div style="text-align: right;">
+                        <div style="font-size: 12px; color: #888; text-transform: uppercase; letter-spacing: 1px;">Mode</div>
+                        <div id="mode-indicator" style="font-size: 18px; font-weight: 600; color: #4caf50;">LIVE</div>
+                    </div>
+                    <div style="text-align: right;">
+                        <div style="font-size: 12px; color: #888; text-transform: uppercase; letter-spacing: 1px;">Execute Day</div>
+                        <div id="active-execute-day" style="font-size: 18px; font-weight: 600; color: #64b5f6;">--</div>
+                    </div>
+                    <div style="text-align: right;">
+                        <div style="font-size: 12px; color: #888; text-transform: uppercase; letter-spacing: 1px;">Fetch Day</div>
+                        <div id="active-fetch-day" style="font-size: 18px; font-weight: 600; color: #ffc107;">--</div>
+                    </div>
+                    <div style="text-align: right;">
+                        <div style="font-size: 12px; color: #888; text-transform: uppercase; letter-spacing: 1px;">Alerts</div>
+                        <div id="alert-count" class="badge" style="font-size: 18px;">0</div>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <div class="info-banner" style="background: #1e2749; padding: 12px 20px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #2196f3; display: flex; justify-content: space-between; align-items: center;">
+            <span style="color: #64b5f6; font-weight: 600;">
+                📅 Single Timeline: Execute Day = <strong id="timeline-execute" style="color: #64b5f6;">--</strong> | Fetch Day = <strong id="timeline-fetch" style="color: #ffc107;">--</strong>
+            </span>
+            <span style="color: #888; font-size: 13px;">
+                Fetch Day = Execute Day - 2 trading days
+            </span>
+        </div>
+
+        <div class="controls">
+            <input type="date" id="execute-day-picker" title="Execute Day (monitoring date)" style="padding: 12px 15px; font-size: 14px;" />
+            <input type="text" id="stock-search" placeholder="Enter stocks: HINDZINC, TATASTEEL, RELIANCE" style="flex: 2; padding: 12px 15px; font-size: 16px;" />
+            <button onclick="addStocksToMonitor()" style="background: #4caf50; padding: 12px 30px;">🔍 Monitor Stocks</button>
+            <button onclick="showSaveWatchlistModal()" style="background: #ff9800; padding: 12px 30px;">💾 Save Watchlist</button>
+            <button onclick="showLoadWatchlistModal()" style="background: #9c27b0; padding: 12px 30px;">📂 Load Watchlist</button>
+            <button onclick="toggleAutoRefresh()">Auto-Refresh: <span id="auto-status">OFF</span></button>
+        </div>
+        
+        <div id="status-message" style="display: none; padding: 15px; margin: 15px 0; border-radius: 8px; font-weight: 500;"></div>
+
+        <div class="monitoring-table">
+            <table id="stocks-table">
+                <thead>
+                    <tr>
+                        <th>Symbol</th>
+                        <th>LTP</th>
+                        <th>Zone Type</th>
+                        <th>Zone Range</th>
+                        <th>Distance</th>
+                        <th>Reaction</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="stocks-body">
+                    <tr>
+                        <td colspan="8" class="loading">Select Execute Day and add stocks to begin monitoring</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        // SINGLE TIMELINE ENGINE
+        let autoRefresh = false;
+        let refreshInterval = null;
+        let currentSymbols = [];
+        let ACTIVE_EXECUTE_DAY = null;
+        let ACTIVE_FETCH_DAY = null;
+        let SYSTEM_MODE = 'LIVE';
+        
+        const systemToday = new Date().toISOString().split('T')[0];
+        
+        // Initialize
+        document.getElementById('execute-day-picker').value = systemToday;
+        ACTIVE_EXECUTE_DAY = systemToday;
+        initializeTimeline();
+        
+        function initializeTimeline() {
+            const executeDay = document.getElementById('execute-day-picker').value;
+            
+            fetch(`/api/calculate-fetch-day?execute_day=${executeDay}`)
+                .then(r => r.json())
+                .then(result => {
+                    if (result.success) {
+                        ACTIVE_EXECUTE_DAY = result.execute_day;
+                        ACTIVE_FETCH_DAY = result.fetch_day;
+                        SYSTEM_MODE = (ACTIVE_EXECUTE_DAY === systemToday) ? 'LIVE' : 'REPLAY';
+                        updateTimelineDisplay();
+                    }
+                });
+        }
+        
+        function updateTimelineDisplay() {
+            document.getElementById('mode-indicator').textContent = SYSTEM_MODE;
+            document.getElementById('mode-indicator').style.color = SYSTEM_MODE === 'LIVE' ? '#4caf50' : '#ff9800';
+            document.getElementById('active-execute-day').textContent = ACTIVE_EXECUTE_DAY;
+            document.getElementById('active-fetch-day').textContent = ACTIVE_FETCH_DAY;
+            document.getElementById('timeline-execute').textContent = ACTIVE_EXECUTE_DAY;
+            document.getElementById('timeline-fetch').textContent = ACTIVE_FETCH_DAY;
+        }
+        
+        document.getElementById('execute-day-picker').addEventListener('change', function() {
+            ACTIVE_EXECUTE_DAY = this.value;
+            currentSymbols = [];
+            initializeTimeline();
+            document.getElementById('stocks-body').innerHTML = '<tr><td colspan="8" class="loading">Timeline changed. Add stocks to monitor.</td></tr>';
+        });
+
+        function showStatus(message, isError = false) {
+            const el = document.getElementById('status-message');
+            el.textContent = message;
+            el.style.display = 'block';
+            el.style.background = isError ? 'rgba(244, 67, 54, 0.2)' : 'rgba(76, 175, 80, 0.2)';
+            el.style.border = isError ? '2px solid #f44336' : '2px solid #4caf50';
+            el.style.color = isError ? '#f44336' : '#4caf50';
+            setTimeout(() => el.style.display = 'none', 5000);
+        }
+
+        async function addStocksToMonitor() {
+            const input = document.getElementById('stock-search').value.trim();
+            
+            if (!ACTIVE_EXECUTE_DAY) {
+                showStatus('Please select Execute Day first', true);
+                return;
+            }
+            
+            if (!input) {
+                showStatus('Please enter stock symbols', true);
+                return;
+            }
+
+            const symbols = input.split(',').map(s => s.trim().toUpperCase()).filter(s => s.length > 0);
+            
+            if (symbols.length === 0) {
+                showStatus('Please enter valid stock symbols', true);
+                return;
+            }
+
+            showStatus(`Processing ${symbols.length} stocks for Execute Day ${ACTIVE_EXECUTE_DAY}...`);
+
+            try {
+                const response = await fetch('/api/smart-monitor', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ 
+                        symbols: symbols,
+                        execute_day: ACTIVE_EXECUTE_DAY
+                    })
+                });
+
+                const result = await response.json();
+                
+                if (result.success) {
+                    currentSymbols = symbols;
+                    ACTIVE_FETCH_DAY = result.fetch_day;
+                    updateTimelineDisplay();
+                    
+                    let statusMsg = `✓ ${symbols.length} stocks on Execute Day ${ACTIVE_EXECUTE_DAY}`;
+                    if (result.zones_generated) {
+                        statusMsg += ` | Zones generated from Fetch Day ${ACTIVE_FETCH_DAY}`;
+                    } else {
+                        statusMsg += ` | Using existing zones from Fetch Day ${ACTIVE_FETCH_DAY}`;
+                    }
+                    
+                    showStatus(statusMsg);
+                    document.getElementById('stock-search').value = '';
+                    setTimeout(() => refreshData(), 1000);
+                } else {
+                    showStatus(result.error || 'Failed to add stocks', true);
+                }
+            } catch (error) {
+                showStatus('Error: ' + error.message, true);
+            }
+        }
+
+        function refreshData() {
+            if (!ACTIVE_EXECUTE_DAY || currentSymbols.length === 0) {
+                console.log('Skip refresh - Execute Day:', ACTIVE_EXECUTE_DAY, 'Symbols:', currentSymbols);
+                const tbody = document.getElementById('stocks-body');
+                tbody.innerHTML = '<tr><td colspan="8" class="no-data">No stocks in monitoring list. Add stocks to begin.</td></tr>';
+                return;
+            }
+            
+            console.log('Refreshing data for Execute Day:', ACTIVE_EXECUTE_DAY);
+            console.log('Current symbols:', currentSymbols);
+            
+            const symbolsParam = `&symbols=${currentSymbols.join(',')}`;
+            fetch(`/api/execute-day-monitor?execute_day=${ACTIVE_EXECUTE_DAY}${symbolsParam}`)
+                .then(response => response.json())
+                .then(result => {
+                    console.log('Refresh result:', result);
+                    if (result.success) {
+                        updateTable(result.data);
+                        updateAlertCount(result.data);
+                    } else {
+                        showStatus(result.error || 'Failed to load data', true);
+                    }
+                })
+                .catch(error => {
+                    console.error('Refresh error:', error);
+                });
+        }
+
+        function updateTable(data) {
+            const tbody = document.getElementById('stocks-body');
+            
+            if (data.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="8" class="no-data">No stocks in monitoring list.</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = '';
+
+            data.forEach(stock => {
+                const row = document.createElement('tr');
+                row.className = getRowClass(stock.status);
+                
+                const zone = stock.closest_zone;
+                const zoneType = zone ? zone.zone_type : '--';
+                const zoneRange = zone ? `${zone.zone_low.toFixed(2)}–${zone.zone_high.toFixed(2)}` : '--';
+                
+                let distance = '--';
+                if (zone && stock.distance_percent !== null) {
+                    const dist = stock.distance_percent;
+                    if (Math.abs(dist) < 0.01) {
+                        distance = 'In Zone';
+                    } else if (dist > 0) {
+                        distance = `+${dist.toFixed(2)}%`;
+                    } else {
+                        distance = `${dist.toFixed(2)}%`;
+                    }
+                }
+                
+                const reaction = stock.reaction || 'No Touch Yet';
+                
+                row.innerHTML = `
+                    <td class="symbol">${stock.symbol}</td>
+                    <td class="ltp">₹${stock.ltp.toFixed(2)}</td>
+                    <td class="zone-type ${zoneType.toLowerCase()}">${zoneType}</td>
+                    <td class="zone-range">${zoneRange}</td>
+                    <td class="distance">${distance}</td>
+                    <td class="reaction ${getReactionClass(reaction)}">${reaction}</td>
+                    <td class="status">${formatStatus(stock.status)}</td>
+                    <td>
+                        <button onclick="editZone('${stock.symbol}')" style="padding: 5px 10px; background: #2196f3; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; margin-right: 5px;">✏️ Edit</button>
+                        <button onclick="deleteStock('${stock.symbol}')" style="padding: 5px 10px; background: #f44336; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px;">🗑️ Delete</button>
+                    </td>
+                `;
+                
+                tbody.appendChild(row);
+            });
+        }
+        
+        function getReactionClass(reaction) {
+            const map = {
+                'No Touch Yet': 'reaction-none',
+                'First Touch': 'reaction-first',
+                'Holding': 'reaction-holding',
+                'Rejected': 'reaction-rejected',
+                'Broken': 'reaction-broken'
+            };
+            return map[reaction] || '';
+        }
+
+        function getRowClass(status) {
+            switch(status) {
+                case 'INSIDE_BULLISH': return 'row-bullish';
+                case 'INSIDE_BEARISH': return 'row-bearish';
+                case 'NEAR': return 'row-near';
+                default: return '';
+            }
+        }
+
+        function formatStatus(status) {
+            const statusMap = {
+                'INSIDE_BULLISH': '🟢 Inside Bullish Zone',
+                'INSIDE_BEARISH': '🔴 Inside Bearish Zone',
+                'NEAR': '🟡 Near Zone',
+                'FAR': '⚪ Far'
+            };
+            return statusMap[status] || status;
+        }
+
+        function updateAlertCount(data) {
+            const alertCount = data.filter(s => 
+                ['INSIDE_BULLISH', 'INSIDE_BEARISH', 'NEAR'].includes(s.status) &&
+                ['First Touch', 'Holding'].includes(s.reaction)
+            ).length;
+            
+            document.getElementById('alert-count').textContent = `${alertCount}`;
+            
+            if (alertCount > 0) {
+                document.getElementById('alert-count').classList.add('active');
+            } else {
+                document.getElementById('alert-count').classList.remove('active');
+            }
+        }
+
+        function toggleAutoRefresh() {
+            autoRefresh = !autoRefresh;
+            document.getElementById('auto-status').textContent = autoRefresh ? 'ON' : 'OFF';
+            
+            if (autoRefresh) {
+                refreshData();
+                refreshInterval = setInterval(refreshData, 5000);
+            } else {
+                clearInterval(refreshInterval);
+            }
+        }
+
+        document.getElementById('stock-search').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                addStocksToMonitor();
+            }
+        });
+        
+        // Zone editing functionality
+        function editZone(symbol) {
+            // Get current zones for this symbol
+            fetch('/api/get-zones?symbol=' + symbol + '&fetch_day=' + ACTIVE_FETCH_DAY)
+                .then(function(r) { return r.json(); })
+                .then(function(result) {
+                    if (result.success && result.zones.length > 0) {
+                        showZoneEditor(symbol, result.zones[0]);
+                    } else {
+                        // No zone exists - allow creating one
+                        showZoneEditor(symbol, null);
+                    }
+                });
+        }
+        
+        function showZoneEditor(symbol, currentZone) {
+            const zoneType = currentZone ? currentZone.zone_type : 'BULLISH';
+            const zoneLow = currentZone ? currentZone.zone_low : '';
+            const zoneHigh = currentZone ? currentZone.zone_high : '';
+            
+            const title = currentZone ? '✏️ Edit Zone - ' + symbol : '➕ Create Zone - ' + symbol;
+            const subtitle = currentZone ? 'Fetch Day: ' + ACTIVE_FETCH_DAY : 'No zone detected. Create manually for Fetch Day: ' + ACTIVE_FETCH_DAY;
+            
+            const modal = document.createElement('div');
+            modal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); display: flex; justify-content: center; align-items: center; z-index: 1000;';
+            
+            const modalContent = '<div style="background: #151932; padding: 30px; border-radius: 12px; width: 500px; border: 2px solid #2196f3;">' +
+                '<h2 style="color: #fff; margin-bottom: 10px;">' + title + '</h2>' +
+                '<p style="color: #888; margin-bottom: 20px; font-size: 13px;">' + subtitle + '</p>' +
+                
+                '<div style="margin-bottom: 20px;">' +
+                '<label style="display: block; color: #64b5f6; margin-bottom: 8px; font-weight: 600;">Zone Type</label>' +
+                '<select id="edit-zone-type" style="width: 100%; padding: 10px; background: #1e2749; border: 2px solid #2a3254; border-radius: 6px; color: #e0e0e0; font-size: 14px;">' +
+                '<option value="BULLISH" ' + (zoneType === 'BULLISH' ? 'selected' : '') + '>BULLISH</option>' +
+                '<option value="BEARISH" ' + (zoneType === 'BEARISH' ? 'selected' : '') + '>BEARISH</option>' +
+                '</select>' +
+                '</div>' +
+                
+                '<div style="margin-bottom: 20px;">' +
+                '<label style="display: block; color: #64b5f6; margin-bottom: 8px; font-weight: 600;">Zone Low</label>' +
+                '<input type="number" id="edit-zone-low" value="' + zoneLow + '" step="0.01" placeholder="Enter lower price" style="width: 100%; padding: 10px; background: #1e2749; border: 2px solid #2a3254; border-radius: 6px; color: #e0e0e0; font-size: 14px;" />' +
+                '</div>' +
+                
+                '<div style="margin-bottom: 30px;">' +
+                '<label style="display: block; color: #64b5f6; margin-bottom: 8px; font-weight: 600;">Zone High</label>' +
+                '<input type="number" id="edit-zone-high" value="' + zoneHigh + '" step="0.01" placeholder="Enter upper price" style="width: 100%; padding: 10px; background: #1e2749; border: 2px solid #2a3254; border-radius: 6px; color: #e0e0e0; font-size: 14px;" />' +
+                '</div>' +
+                
+                '<div style="display: flex; gap: 15px;">' +
+                '<button onclick="saveZone(\'' + symbol + '\')" style="flex: 1; padding: 12px; background: #4caf50; color: white; border: none; border-radius: 6px; font-weight: 600; cursor: pointer;">💾 Save Zone</button>' +
+                '<button onclick="closeZoneEditor()" style="flex: 1; padding: 12px; background: #f44336; color: white; border: none; border-radius: 6px; font-weight: 600; cursor: pointer;">✖ Cancel</button>' +
+                '</div>' +
+                '</div>';
+            
+            modal.innerHTML = modalContent;
+            modal.id = 'zone-editor-modal';
+            document.body.appendChild(modal);
+        }
+        
+        function closeZoneEditor() {
+            const modal = document.getElementById('zone-editor-modal');
+            if (modal) {
+                modal.remove();
+            }
+        }
+        
+        async function saveZone(symbol) {
+            const zoneType = document.getElementById('edit-zone-type').value;
+            const zoneLow = parseFloat(document.getElementById('edit-zone-low').value);
+            const zoneHigh = parseFloat(document.getElementById('edit-zone-high').value);
+            
+            if (!zoneLow || !zoneHigh || zoneLow >= zoneHigh) {
+                alert('Invalid zone values. Zone Low must be less than Zone High.');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/update-zone', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        symbol: symbol,
+                        fetch_day: ACTIVE_FETCH_DAY,
+                        zone_type: zoneType,
+                        zone_low: zoneLow,
+                        zone_high: zoneHigh
+                    })
+                });
+                
+                const result = await response.json();
+                
+                console.log('Save zone result:', result);
+                
+                if (result.success) {
+                    showStatus('✓ Zone updated for ' + symbol);
+                    closeZoneEditor();
+                    // Force refresh to show updated zone immediately
+                    console.log('Refreshing data in 300ms...');
+                    setTimeout(function() { 
+                        console.log('Calling refreshData()');
+                        refreshData(); 
+                    }, 300);
+                } else {
+                    showStatus(result.error || 'Failed to update zone', true);
+                }
+            } catch (error) {
+                showStatus('Error: ' + error.message, true);
+            }
+        }
+        
+        // Delete stock functionality
+        function deleteStock(symbol) {
+            if (!confirm('Remove ' + symbol + ' from monitoring list?')) {
+                return;
+            }
+            
+            // Remove from currentSymbols array
+            const index = currentSymbols.indexOf(symbol);
+            if (index > -1) {
+                currentSymbols.splice(index, 1);
+            }
+            
+            console.log('Deleted ' + symbol + '. Remaining symbols:', currentSymbols);
+            
+            showStatus('✓ Removed ' + symbol + ' from list');
+            
+            // Refresh to update table
+            refreshData();
+        }
+        
+        // Watchlist Management
+        function showSaveWatchlistModal() {
+            if (currentSymbols.length === 0) {
+                showStatus('No stocks to save. Add stocks first.', true);
+                return;
+            }
+            
+            const modal = document.createElement('div');
+            modal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); display: flex; justify-content: center; align-items: center; z-index: 1000;';
+            
+            const modalContent = `
+                <div style="background: #151932; padding: 30px; border-radius: 12px; width: 500px; border: 2px solid #ff9800;">
+                    <h2 style="color: #fff; margin-bottom: 20px;">💾 Save Watchlist</h2>
+                    
+                    <div style="background: #1e2749; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+                        <p style="color: #64b5f6; margin-bottom: 10px;"><strong>Current Stocks:</strong></p>
+                        <p style="color: #e0e0e0;">${currentSymbols.join(', ')}</p>
+                        <p style="color: #888; font-size: 13px; margin-top: 10px;">Execute Day: ${ACTIVE_EXECUTE_DAY} | Fetch Day: ${ACTIVE_FETCH_DAY}</p>
+                    </div>
+                    
+                    <div style="margin-bottom: 20px;">
+                        <label style="display: block; color: #64b5f6; margin-bottom: 8px; font-weight: 600;">Watchlist Name</label>
+                        <input type="text" id="watchlist-name" placeholder="e.g., Morning Breakout Stocks" style="width: 100%; padding: 10px; background: #1e2749; border: 2px solid #2a3254; border-radius: 6px; color: #e0e0e0; font-size: 14px;" />
+                    </div>
+                    
+                    <div style="margin-bottom: 20px;">
+                        <label style="display: block; color: #64b5f6; margin-bottom: 8px; font-weight: 600;">For Which Execute Day?</label>
+                        <input type="date" id="watchlist-execute-day" value="${ACTIVE_EXECUTE_DAY}" style="width: 100%; padding: 10px; background: #1e2749; border: 2px solid #2a3254; border-radius: 6px; color: #e0e0e0; font-size: 14px;" />
+                        <small style="color: #888; font-size: 12px; display: block; margin-top: 5px;">This watchlist will be for this Execute Day</small>
+                    </div>
+                    
+                    <div style="margin-bottom: 30px;">
+                        <label style="display: block; color: #64b5f6; margin-bottom: 8px; font-weight: 600;">Description (Optional)</label>
+                        <textarea id="watchlist-description" placeholder="e.g., High volume stocks with bullish zones" style="width: 100%; padding: 10px; background: #1e2749; border: 2px solid #2a3254; border-radius: 6px; color: #e0e0e0; font-size: 14px; min-height: 60px;"></textarea>
+                    </div>
+                    
+                    <div style="display: flex; gap: 15px;">
+                        <button onclick="saveWatchlist()" style="flex: 1; padding: 12px; background: #ff9800; color: white; border: none; border-radius: 6px; font-weight: 600; cursor: pointer;">💾 Save</button>
+                        <button onclick="closeModal('save-watchlist-modal')" style="flex: 1; padding: 12px; background: #f44336; color: white; border: none; border-radius: 6px; font-weight: 600; cursor: pointer;">✖ Cancel</button>
+                    </div>
+                </div>
+            `;
+            
+            modal.innerHTML = modalContent;
+            modal.id = 'save-watchlist-modal';
+            document.body.appendChild(modal);
+        }
+        
+        async function saveWatchlist() {
+            const name = document.getElementById('watchlist-name').value.trim();
+            const description = document.getElementById('watchlist-description').value.trim();
+            const executeDay = document.getElementById('watchlist-execute-day').value;
+            
+            if (!name) {
+                alert('Please enter a watchlist name');
+                return;
+            }
+            
+            if (!executeDay) {
+                alert('Please select an Execute Day');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/save-watchlist', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        name: name,
+                        description: description,
+                        execute_day: executeDay,
+                        fetch_day: ACTIVE_FETCH_DAY,
+                        symbols: currentSymbols
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showStatus('✓ Watchlist "' + name + '" saved successfully!');
+                    closeModal('save-watchlist-modal');
+                } else {
+                    showStatus(result.error || 'Failed to save watchlist', true);
+                }
+            } catch (error) {
+                showStatus('Error: ' + error.message, true);
+            }
+        }
+        
+        async function showLoadWatchlistModal() {
+            try {
+                const response = await fetch('/api/get-watchlists');
+                const result = await response.json();
+                
+                if (!result.success || result.watchlists.length === 0) {
+                    showStatus('No saved watchlists found', true);
+                    return;
+                }
+                
+                const modal = document.createElement('div');
+                modal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); display: flex; justify-content: center; align-items: center; z-index: 1000;';
+                
+                let watchlistsHtml = '';
+                result.watchlists.forEach(function(w) {
+                    watchlistsHtml += '<div style="background: #1e2749; padding: 15px; border-radius: 8px; margin-bottom: 15px; border-left: 4px solid #9c27b0;">';
+                    watchlistsHtml += '<div style="display: flex; justify-content: space-between; align-items: start; gap: 15px;">';
+                    watchlistsHtml += '<div style="flex: 1; min-width: 0;">';
+                    watchlistsHtml += '<h3 style="color: #fff; margin-bottom: 5px; font-size: 16px;">' + w.name + '</h3>';
+                    watchlistsHtml += '<p style="color: #888; font-size: 13px; margin-bottom: 10px;">' + (w.description || 'No description') + '</p>';
+                    watchlistsHtml += '<p style="color: #64b5f6; font-size: 13px; margin-bottom: 5px;"><strong>Stocks:</strong></p>';
+                    watchlistsHtml += '<p style="color: #e0e0e0; font-size: 12px; word-wrap: break-word; overflow-wrap: break-word; line-height: 1.6;">' + w.symbols + '</p>';
+                    watchlistsHtml += '<p style="color: #888; font-size: 11px; margin-top: 10px; padding-top: 10px; border-top: 1px solid #2a3254;">Execute: <strong style="color: #64b5f6;">' + w.execute_day + '</strong> | Fetch: <strong style="color: #ffc107;">' + w.fetch_day + '</strong></p>';
+                    watchlistsHtml += '</div>';
+                    watchlistsHtml += '<div style="display: flex; flex-direction: column; gap: 8px; flex-shrink: 0;">';
+                    watchlistsHtml += '<button onclick="loadWatchlist(\'' + w.name + '\')" style="padding: 10px 20px; background: #4caf50; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600; white-space: nowrap;">📂 Load</button>';
+                    watchlistsHtml += '<button onclick="deleteWatchlist(\'' + w.name + '\')" style="padding: 10px 20px; background: #f44336; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600;">🗑️ Delete</button>';
+                    watchlistsHtml += '</div>';
+                    watchlistsHtml += '</div>';
+                    watchlistsHtml += '</div>';
+                });
+                
+                const modalContent = '<div style="background: #151932; padding: 30px; border-radius: 12px; width: 700px; max-height: 80vh; overflow-y: auto; border: 2px solid #9c27b0;">' +
+                    '<h2 style="color: #fff; margin-bottom: 20px;">📂 Load Watchlist</h2>' +
+                    watchlistsHtml +
+                    '<button onclick="closeModal(\'load-watchlist-modal\')" style="width: 100%; padding: 12px; background: #f44336; color: white; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; margin-top: 15px;">✖ Close</button>' +
+                    '</div>';
+                
+                modal.innerHTML = modalContent;
+                modal.id = 'load-watchlist-modal';
+                document.body.appendChild(modal);
+            } catch (error) {
+                showStatus('Error loading watchlists: ' + error.message, true);
+            }
+        }
+        
+        async function loadWatchlist(name) {
+            try {
+                const response = await fetch('/api/load-watchlist?name=' + encodeURIComponent(name));
+                const result = await response.json();
+                
+                if (result.success) {
+                    // Set Execute Day
+                    document.getElementById('execute-day-picker').value = result.execute_day;
+                    ACTIVE_EXECUTE_DAY = result.execute_day;
+                    ACTIVE_FETCH_DAY = result.fetch_day;
+                    
+                    // Update timeline
+                    updateTimelineDisplay();
+                    
+                    // Set symbols - THIS IS CRITICAL
+                    currentSymbols = result.symbols;
+                    
+                    console.log('Loaded watchlist:', name);
+                    console.log('Execute Day:', ACTIVE_EXECUTE_DAY);
+                    console.log('Fetch Day:', ACTIVE_FETCH_DAY);
+                    console.log('Symbols:', currentSymbols);
+                    
+                    // Close modal
+                    closeModal('load-watchlist-modal');
+                    
+                    // Show success
+                    showStatus('✓ Loaded watchlist "' + name + '" with ' + result.symbols.length + ' stocks');
+                    
+                    // IMPORTANT: Trigger immediate refresh to load data
+                    console.log('Triggering immediate refresh...');
+                    refreshData();
+                } else {
+                    showStatus(result.error || 'Failed to load watchlist', true);
+                }
+            } catch (error) {
+                showStatus('Error: ' + error.message, true);
+            }
+        }
+        
+        async function deleteWatchlist(name) {
+            if (!confirm('Delete watchlist "' + name + '"?')) {
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/delete-watchlist', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ name: name })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showStatus('✓ Deleted watchlist "' + name + '"');
+                    closeModal('load-watchlist-modal');
+                    setTimeout(function() { showLoadWatchlistModal(); }, 500);
+                } else {
+                    showStatus(result.error || 'Failed to delete watchlist', true);
+                }
+            } catch (error) {
+                showStatus('Error: ' + error.message, true);
+            }
+        }
+        
+        function closeModal(modalId) {
+            const modal = document.getElementById(modalId);
+            if (modal) {
+                modal.remove();
+            }
+        }
+    </script>
+</body>
+</html>

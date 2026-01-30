@@ -1,0 +1,22 @@
+Trading Decision Support System
+================================
+
+Structure:
+/
+├── app.py                 # Flask main application
+├── config.py             # Configuration settings
+├── requirements.txt      # Dependencies
+├── database/
+│   ├── db_manager.py    # SQLite operations
+│   └── schema.sql       # Database schema
+├── core/
+│   ├── fetch_day.py     # Zone extraction logic
+│   ├── execute_day.py   # Live monitoring logic
+│   └── zone_detector.py # Impulse & zone identification
+├── api/
+│   └── kite_client.py   # Zerodha Kite integration
+├── static/
+│   ├── css/
+│   └── js/
+└── templates/
+    └── dashboard.html   # Main UI
