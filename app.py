@@ -31,12 +31,39 @@ except Exception as e:
 
 @app.route('/')
 def index():
-    """Main dashboard"""
-    # Check if authenticated
+    """Main dashboard - requires PIN unlock"""
+    # Check if user is unlocked
+    if not session.get('unlocked'):
+        return redirect('/lock')
+    
+    # Check if authenticated with Kite
     if not config.Config.KITE_ACCESS_TOKEN:
         return render_template('auth_required.html', 
                              api_key=config.Config.KITE_API_KEY)
     return render_template('dashboard.html')
+
+@app.route('/lock')
+def lock_screen():
+    """Show PIN lock screen"""
+    return render_template('lock_screen.html')
+
+@app.route('/api/unlock', methods=['POST'])
+def unlock():
+    """Unlock dashboard with PIN"""
+    data = request.json
+    pin = data.get('pin')
+    
+    if pin == '1779':
+        session['unlocked'] = True
+        return jsonify({'success': True})
+    else:
+        return jsonify({'success': False, 'error': 'Incorrect PIN'}), 401
+
+@app.route('/api/lock', methods=['POST'])
+def lock():
+    """Lock dashboard"""
+    session['unlocked'] = False
+    return jsonify({'success': True})
 
 @app.route('/setup')
 def setup():

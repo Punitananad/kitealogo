@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🔒 Locked - Execute Day Monitor</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #0a0e27 0%, #1a1f3a 100%);
+            color: #e0e0e0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .lock-container {
+            background: #151932;
+            border-radius: 20px;
+            padding: 50px 40px;
+            max-width: 400px;
+            width: 100%;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+            text-align: center;
+            border: 2px solid #2196f3;
+        }
+        
+        .lock-icon {
+            font-size: 80px;
+            margin-bottom: 20px;
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+        
+        h1 {
+            color: #fff;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+        
+        .subtitle {
+            color: #888;
+            margin-bottom: 40px;
+            font-size: 14px;
+        }
+        
+        .pin-input {
+            width: 100%;
+            padding: 20px;
+            background: #1e2749;
+            border: 2px solid #2a3254;
+            border-radius: 12px;
+            color: #e0e0e0;
+            font-size: 32px;
+            text-align: center;
+            letter-spacing: 10px;
+            margin-bottom: 20px;
+            transition: all 0.3s;
+        }
+        
+        .pin-input:focus {
+            outline: none;
+            border-color: #2196f3;
+            box-shadow: 0 0 20px rgba(33, 150, 243, 0.3);
+        }
+        
+        .pin-input.error {
+            border-color: #f44336;
+            animation: shake 0.5s;
+        }
+        
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-10px); }
+            75% { transform: translateX(10px); }
+        }
+        
+        .unlock-btn {
+            width: 100%;
+            padding: 18px;
+            background: #2196f3;
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 18px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .unlock-btn:hover {
+            background: #1976d2;
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px rgba(33, 150, 243, 0.4);
+        }
+        
+        .unlock-btn:active {
+            transform: translateY(0);
+        }
+        
+        .error-message {
+            color: #f44336;
+            margin-top: 15px;
+            font-size: 14px;
+            display: none;
+        }
+        
+        .hint {
+            color: #64b5f6;
+            margin-top: 30px;
+            font-size: 12px;
+            padding: 10px;
+            background: rgba(33, 150, 243, 0.1);
+            border-radius: 8px;
+        }
+    </style>
+</head>
+<body>
+    <div class="lock-container">
+        <div class="lock-icon">🔒</div>
+        <h1>Execute Day Monitor</h1>
+        <p class="subtitle">Enter PIN to unlock dashboard</p>
+        
+        <input 
+            type="password" 
+            id="pin-input" 
+            class="pin-input" 
+            placeholder="••••" 
+            maxlength="4"
+            autofocus
+        />
+        
+        <button class="unlock-btn" onclick="checkPin()">🔓 Unlock</button>
+        
+        <div class="error-message" id="error-message">
+            ❌ Incorrect PIN. Please try again.
+        </div>
+        
+        <div class="hint">
+            🔐 Secure access to your trading dashboard
+        </div>
+    </div>
+
+    <script>
+        const CORRECT_PIN = '1779';
+        
+        // Allow Enter key to submit
+        document.getElementById('pin-input').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                checkPin();
+            }
+        });
+        
+        function checkPin() {
+            const pinInput = document.getElementById('pin-input');
+            const errorMessage = document.getElementById('error-message');
+            const enteredPin = pinInput.value;
+            
+            if (enteredPin === CORRECT_PIN) {
+                // Correct PIN - set session and redirect
+                fetch('/api/unlock', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ pin: enteredPin })
+                })
+                .then(response => response.json())
+                .then(result => {
+                    if (result.success) {
+                        // Success animation
+                        pinInput.style.borderColor = '#4caf50';
+                        pinInput.style.background = 'rgba(76, 175, 80, 0.2)';
+                        
+                        // Redirect to dashboard
+                        setTimeout(() => {
+                            window.location.href = '/';
+                        }, 500);
+                    } else {
+                        showError();
+                    }
+                })
+                .catch(() => {
+                    showError();
+                });
+            } else {
+                showError();
+            }
+        }
+        
+        function showError() {
+            const pinInput = document.getElementById('pin-input');
+            const errorMessage = document.getElementById('error-message');
+            
+            // Show error
+            pinInput.classList.add('error');
+            errorMessage.style.display = 'block';
+            
+            // Clear input
+            pinInput.value = '';
+            
+            // Remove error styling after animation
+            setTimeout(() => {
+                pinInput.classList.remove('error');
+                errorMessage.style.display = 'none';
+            }, 2000);
+        }
+    </script>
+</body>
+</html>

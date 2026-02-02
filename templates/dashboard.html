@@ -28,6 +28,9 @@
                         <div style="font-size: 12px; color: #888; text-transform: uppercase; letter-spacing: 1px;">Alerts</div>
                         <div id="alert-count" class="badge" style="font-size: 18px;">0</div>
                     </div>
+                    <div style="text-align: right;">
+                        <button onclick="lockDashboard()" style="padding: 10px 20px; background: #f44336; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 600;">🔒 Lock</button>
+                    </div>
                 </div>
             </div>
         </header>
@@ -44,7 +47,7 @@
         <div class="controls">
             <input type="date" id="execute-day-picker" title="Execute Day (monitoring date)" style="padding: 12px 15px; font-size: 14px;" />
             <input type="text" id="stock-search" placeholder="Enter stocks: HINDZINC, TATASTEEL, RELIANCE" style="flex: 2; padding: 12px 15px; font-size: 16px;" />
-            <button onclick="addStocksToMonitor()" style="background: #4caf50; padding: 12px 30px;">🔍 Monitor Stocks</button>
+            <button onclick="addStocksToMonitor()" style="background: #4caf50; padding: 12px 30px;">🔍 halku Stocks</button>
             <button onclick="showSaveWatchlistModal()" style="background: #ff9800; padding: 12px 30px;">💾 Save Watchlist</button>
             <button onclick="showLoadWatchlistModal()" style="background: #9c27b0; padding: 12px 30px;">📂 Load Watchlist</button>
             <button onclick="toggleAutoRefresh()">Auto-Refresh: <span id="auto-status">OFF</span></button>
@@ -664,6 +667,27 @@
             const modal = document.getElementById(modalId);
             if (modal) {
                 modal.remove();
+            }
+        }
+        
+        // Lock dashboard functionality
+        async function lockDashboard() {
+            try {
+                const response = await fetch('/api/lock', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'}
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    // Redirect to lock screen
+                    window.location.href = '/lock';
+                } else {
+                    showStatus('Failed to lock dashboard', true);
+                }
+            } catch (error) {
+                showStatus('Error: ' + error.message, true);
             }
         }
     </script>
